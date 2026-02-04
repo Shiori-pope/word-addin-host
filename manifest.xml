@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
+  <Id>12345678-1234-1234-1234-123456789012</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Word AI Assistant</ProviderName>
+  <DefaultLocale>zh-CN</DefaultLocale>
+  <DisplayName DefaultValue="Word AI Assistant"/>
+  <Description DefaultValue="基于DeepSeek的智能Word文档助手"/>
+  <IconUrl DefaultValue="https://shiori-pope.github.io/word-addin-host/assets/icon-32.png"/>
+  <HighResolutionIconUrl DefaultValue="https://shiori-pope.github.io/word-addin-host/assets/icon-64.png"/>
+  <SupportUrl DefaultValue="https://www.contoso.com/help"/>
+  <AppDomains>
+    <AppDomain>https://shiori-pope.github.io</AppDomain>
+    <AppDomain>https://login.microsoftonline.com</AppDomain>
+    <AppDomain>https://login.microsoft.com</AppDomain>
+    <AppDomain>https://login.windows.net</AppDomain>
+    <AppDomain>https://aadcdn.msauth.net</AppDomain>
+    <AppDomain>https://aadcdn.msftauth.net</AppDomain>
+    <AppDomain>https://alcdn.msauth.net</AppDomain>
+  </AppDomains>
+  <Hosts>
+    <Host Name="Document"/>
+  </Hosts>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://shiori-pope.github.io/word-addin-host/taskpane.html"/>
+  </DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+  
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    
+    <!-- WebApplicationInfo: SSO 配置 -->
+    <WebApplicationInfo>
+      <Id>aa584c91-54b8-4109-a3ad-635b43cf5478</Id>
+      <Resource>api://shiori-pope.github.io/aa584c91-54b8-4109-a3ad-635b43cf5478</Resource>
+      <Scopes>
+        <Scope>User.Read</Scope>
+        <Scope>profile</Scope>
+        <Scope>openid</Scope>
+        <Scope>email</Scope>
+      </Scopes>
+    </WebApplicationInfo>
+    
+    <!-- Runtimes配置：解决WebView2数据目录权限问题 -->
+    <Runtimes>
+      <Runtime resid="Taskpane.Url" lifetime="short">
+        <Actions>
+          <Action xsi:type="ExecuteFunction" id="openQuickInput">
+            <FunctionName>openQuickInput</FunctionName>
+          </Action>
+        </Actions>
+        <Override type="javascript" resid="Commands.Url"/>
+      </Runtime>
+    </Runtimes>
+    
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title"/>
+            <Description resid="GetStarted.Description"/>
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl"/>
+          </GetStarted>
+          <FunctionFile resid="Commands.Url"/>
+          
+          <!-- Runtime配置 -->
+          <Runtimes>
+            <Runtime resid="Taskpane.Url" lifetime="long" />
+          </Runtimes>
+          
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="CommandsGroup">
+                <Label resid="CommandsGroup.Label"/>
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16"/>
+                  <bt:Image size="32" resid="Icon.32x32"/>
+                  <bt:Image size="80" resid="Icon.80x80"/>
+                </Icon>
+                <Control xsi:type="Button" id="TaskpaneButton">
+                  <Label resid="TaskpaneButton.Label"/>
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label"/>
+                    <Description resid="TaskpaneButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>ButtonId1</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url"/>
+                  </Action>
+                </Control>
+                <Control xsi:type="Button" id="QuickInputButton">
+                  <Label resid="QuickInputButton.Label"/>
+                  <Supertip>
+                    <Title resid="QuickInputButton.Label"/>
+                    <Description resid="QuickInputButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16"/>
+                    <bt:Image size="32" resid="Icon.32x32"/>
+                    <bt:Image size="80" resid="Icon.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>openQuickInput</FunctionName>
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://shiori-pope.github.io/word-addin-host/assets/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://shiori-pope.github.io/word-addin-host/assets/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://shiori-pope.github.io/word-addin-host/assets/icon-80.png"/>
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://go.microsoft.com/fwlink/?LinkId=276812"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://shiori-pope.github.io/word-addin-host/commands.html"/>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://shiori-pope.github.io/word-addin-host/taskpane.html"/>
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="开始使用 AI 助手!"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="AI 助手"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="打开 AI 助手"/>
+        <bt:String id="QuickInputButton.Label" DefaultValue="AI 快速输入"/>
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="您的 AI 助手已加载成功。点击'打开 AI 助手'按钮开始使用。"/>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="点击打开 AI 助手面板"/>
+        <bt:String id="QuickInputButton.Tooltip" DefaultValue="打开快速输入窗口"/>
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

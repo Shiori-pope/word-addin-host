@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MSAL Popup 隔离测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-top: 0; }
+        button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 10px 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #106ebe; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .log {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid transparent;
+        }
+        .log-entry.info { border-left-color: #0078d4; color: #0078d4; }
+        .log-entry.success { border-left-color: #107c10; color: #107c10; }
+        .log-entry.error { border-left-color: #d13438; color: #d13438; }
+        .log-entry.warn { border-left-color: #ff8c00; color: #ff8c00; }
+        .config {
+            background: #fff4e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .config pre {
+            margin: 5px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 MSAL Popup 隔离测试</h1>
+        
+        <div class="config">
+            <strong>测试配置:</strong>
+            <pre id="configDisplay"></pre>
+        </div>
+
+        <div>
+            <button id="testPopup">1. 测试 Popup 登录</button>
+            <button id="checkCache">2. 检查缓存状态</button>
+            <button id="clearCache">3. 清除所有缓存</button>
+            <button id="testSilent">4. 测试静默获取</button>
+        </div>
+
+        <div class="log" id="logContainer">
+            <div class="log-entry info">等待测试...</div>
+        </div>
+    </div>
+
+    <!-- MSAL.js 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
+    
+    <script>
+        // MSAL 配置（与实际项目一致）
+        const msalConfig = {
+            auth: {
+                clientId: 'aa584c91-54b8-4109-a3ad-635b43cf5478',
+                authority: 'https://login.microsoftonline.com/2cd5468c-1faa-4ddc-96ee-1f4a51a21c86',
+                redirectUri: window.location.origin + '/redirect.html',
+                navigateToLoginRequestUrl: false,
+            },
+            cache: {
+                cacheLocation: 'sessionStorage',
+                storeAuthStateInCookie: true,
+                secureCookies: false,
+            },
+            system: {
+                windowHashTimeout: 60000,
+                iframeHashTimeout: 6000,
+                loadFrameTimeout: 0,
+                loggerOptions: {
+                    loggerCallback: (level, message, containsPii) => {
+                        if (containsPii) return;
+                        log(`[MSAL ${level}] ${message}`, 'info');
+                    }
+                }
+            }
+        };
+
+        const loginRequest = {
+            scopes: [
+                'api://aa584c91-54b8-4109-a3ad-635b43cf5478/access_as_user',
+                'openid',
+                'profile',
+                'email'
+            ],
+            prompt: 'select_account'
+        };
+
+        // 显示配置
+        document.getElementById('configDisplay').textContent = JSON.stringify({
+            clientId: msalConfig.auth.clientId,
+            redirectUri: msalConfig.auth.redirectUri,
+            scopes: loginRequest.scopes,
+            cacheLocation: msalConfig.cache.cacheLocation,
+            storeAuthStateInCookie: msalConfig.cache.storeAuthStateInCookie
+        }, null, 2);
+
+        let msalInstance = null;
+        const logContainer = document.getElementById('logContainer');
+
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+
+        async function initMSAL() {
+            if (msalInstance) return msalInstance;
+
+            try {
+                log('正在初始化 MSAL...', 'info');
+                msalInstance = new msal.PublicClientApplication(msalConfig);
+                await msalInstance.initialize();
+                log('✅ MSAL 初始化成功', 'success');
+                
+                // 检查是否有重定向响应
+                const response = await msalInstance.handleRedirectPromise();
+                if (response) {
+                    log('检测到重定向响应: ' + response.account.username, 'success');
+                }
+                
+                return msalInstance;
+            } catch (error) {
+                log('❌ MSAL 初始化失败: ' + error.message, 'error');
+                throw error;
+            }
+        }
+
+        // 按钮 1: 测试 Popup 登录
+        document.getElementById('testPopup').addEventListener('click', async () => {
+            log('========== 开始 Popup 登录测试 ==========', 'info');
+            
+            try {
+                const instance = await initMSAL();
+                
+                log('获取当前账户...', 'info');
+                const accounts = instance.getAllAccounts();
+                log(`当前账户数量: ${accounts.length}`, 'info');
+                
+                if (accounts.length > 0) {
+                    log('已有账户: ' + accounts[0].username, 'info');
+                }
+
+                log('准备打开 popup 窗口...', 'warn');
+                log('请求的 scopes: ' + JSON.stringify(loginRequest.scopes), 'info');
+                
+                // 关键测试点：popup 登录
+                const response = await instance.loginPopup(loginRequest);
+                
+                log('✅ Popup 登录成功！', 'success');
+                log('用户: ' + response.account.username, 'success');
+                log('AccessToken 长度: ' + response.accessToken.length, 'success');
+                log('Scopes: ' + response.scopes.join(', '), 'success');
+                
+            } catch (error) {
+                log('❌ Popup 登录失败', 'error');
+                log('错误代码: ' + (error.errorCode || 'unknown'), 'error');
+                log('错误消息: ' + (error.errorMessage || error.message), 'error');
+                log('子错误: ' + (error.subError || 'none'), 'error');
+                
+                if (error.errorCode === 'no_token_request_cache_error') {
+                    log('', 'error');
+                    log('⚠️ 检测到 no_token_request_cache_error', 'warn');
+                    log('可能原因:', 'warn');
+                    log('1. redirect.html 未正确处理响应', 'warn');
+                    log('2. sessionStorage 在窗口间未共享', 'warn');
+                    log('3. popup 窗口被提前关闭', 'warn');
+                    log('4. MSAL 配置不一致', 'warn');
+                }
+            }
+        });
+
+        // 按钮 2: 检查缓存状态
+        document.getElementById('checkCache').addEventListener('click', async () => {
+            log('========== 检查缓存状态 ==========', 'info');
+            
+            try {
+                const instance = await initMSAL();
+                
+                // 检查 sessionStorage
+                log('SessionStorage 键值:', 'info');
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const key = sessionStorage.key(i);
+                    if (key.includes('msal') || key.includes('login')) {
+                        const value = sessionStorage.getItem(key);
+                        log(`  ${key}: ${value.substring(0, 50)}...`, 'info');
+                    }
+                }
+                
+                // 检查 cookies
+                log('', 'info');
+                log('Cookies:', 'info');
+                const cookies = document.cookie.split(';');
+                cookies.forEach(cookie => {
+                    if (cookie.includes('msal')) {
+                        log(`  ${cookie.trim()}`, 'info');
+                    }
+                });
+                
+                // 检查账户
+                log('', 'info');
+                const accounts = instance.getAllAccounts();
+                log(`账户数量: ${accounts.length}`, 'info');
+                accounts.forEach((account, index) => {
+                    log(`  账户 ${index + 1}: ${account.username}`, 'info');
+                    log(`    环境: ${account.environment}`, 'info');
+                    log(`    homeAccountId: ${account.homeAccountId}`, 'info');
+                });
+                
+            } catch (error) {
+                log('检查失败: ' + error.message, 'error');
+            }
+        });
+
+        // 按钮 3: 清除所有缓存
+        document.getElementById('clearCache').addEventListener('click', () => {
+            log('========== 清除所有缓存 ==========', 'warn');
+            
+            try {
+                // 清除 sessionStorage
+                const sessionKeys = Object.keys(sessionStorage);
+                sessionStorage.clear();
+                log(`✅ 清除 sessionStorage (${sessionKeys.length} 项)`, 'success');
+                
+                // 清除 localStorage
+                const localKeys = Object.keys(localStorage);
+                localStorage.clear();
+                log(`✅ 清除 localStorage (${localKeys.length} 项)`, 'success');
+                
+                // 清除 cookies
+                const cookies = document.cookie.split(';');
+                cookies.forEach(cookie => {
+                    const name = cookie.split('=')[0].trim();
+                    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+                });
+                log(`✅ 清除 cookies (${cookies.length} 项)`, 'success');
+                
+                // 重置 MSAL 实例
+                msalInstance = null;
+                log('✅ 重置 MSAL 实例', 'success');
+                
+                log('', 'success');
+                log('所有缓存已清除！刷新页面生效。', 'success');
+                
+            } catch (error) {
+                log('清除失败: ' + error.message, 'error');
+            }
+        });
+
+        // 按钮 4: 测试静默获取
+        document.getElementById('testSilent').addEventListener('click', async () => {
+            log('========== 测试静默获取 Token ==========', 'info');
+            
+            try {
+                const instance = await initMSAL();
+                const accounts = instance.getAllAccounts();
+                
+                if (accounts.length === 0) {
+                    log('❌ 没有账户，请先登录', 'error');
+                    return;
+                }
+                
+                log('使用账户: ' + accounts[0].username, 'info');
+                
+                const silentRequest = {
+                    ...loginRequest,
+                    account: accounts[0]
+                };
+                
+                const response = await instance.acquireTokenSilent(silentRequest);
+                
+                log('✅ 静默获取成功！', 'success');
+                log('AccessToken 长度: ' + response.accessToken.length, 'success');
+                
+            } catch (error) {
+                log('❌ 静默获取失败', 'error');
+                log('错误: ' + (error.errorCode || error.message), 'error');
+                
+                if (error.name === 'InteractionRequiredAuthError') {
+                    log('需要用户交互，请使用 Popup 登录', 'warn');
+                }
+            }
+        });
+
+        // 页面加载时自动初始化
+        window.addEventListener('load', async () => {
+            log('页面加载完成', 'info');
+            log('浏览器: ' + navigator.userAgent, 'info');
+            log('当前 URL: ' + window.location.href, 'info');
+            
+            try {
+                await initMSAL();
+            } catch (error) {
+                log('自动初始化失败，需手动操作', 'warn');
+            }
+        });
+    </script>
+</body>
+</html>
